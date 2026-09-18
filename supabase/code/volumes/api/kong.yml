@@ -365,9 +365,9 @@ services:
           status_code: 403
           message: "Access is forbidden."
 
-  ## MCP endpoint - local access
+  ## MCP endpoint - protected by service_role key (key-auth + acl)
   - name: mcp
-    _comment: 'MCP: /mcp -> http://studio:3000/api/mcp (local access)'
+    _comment: 'MCP: /mcp -> http://studio:3000/api/mcp (requires service_role apikey)'
     url: http://studio:3000/api/mcp
     routes:
       - name: mcp
@@ -375,21 +375,24 @@ services:
         paths:
           - /mcp
     plugins:
-      # Block access to /mcp by default
-      - name: request-termination
+      - name: cors
+      # Requires header  apikey: <SERVICE_ROLE_KEY>
+      - name: key-auth
         config:
-          status_code: 403
-          message: "Access is forbidden."
-      # Enable local access (danger zone!)
-      # 1. Comment out the 'request-termination' section above
-      # 2. Uncomment the entire section below, including 'deny'
-      # 3. Add your local IPs to the 'allow' list
-      #- name: cors
+          hide_credentials: true
+      # Only the 'service_role' consumer (group admin) may pass
+      - name: acl
+        config:
+          hide_groups_header: true
+          allow:
+            - admin
+      # Optional second layer: restrict by client IP.
+      # Requires KONG_TRUSTED_IPS / KONG_REAL_IP_HEADER on the kong service,
+      # otherwise Kong only sees the reverse proxy's IP and this is useless.
       #- name: ip-restriction
       #  config:
       #    allow:
-      #      - 127.0.0.1
-      #      - ::1
+      #      - 1.2.3.4
       #    deny: []
 
   ## Protected Dashboard - catch all remaining routes
